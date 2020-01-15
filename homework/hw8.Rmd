@@ -1,0 +1,442 @@
+---
+title: "Homework 8"
+author: "Shen Jialun 16307110030"
+date: "12/16/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#cat("\014");rm(list=ls())
+```
+
+## 1-9.1
+The Rayleigh density is
+$$
+f(x) = \frac{x}{\sigma^2}e^{-x^2/(2\sigma^2)},\quad x\geq 0,\ \sigma>0
+$$
+We use chisquare proposal distribution. That is, at each transition, the candidate point $Y$ is generated from $\chi^2(\nu=X_{i-1})$.
+
+```{r, fig.width = 8, fig.height = 4}
+drayleigh <- function(x, sigma){
+  if (any(x < 0)) return (0)
+  stopifnot(sigma > 0)
+  return ((x/sigma^2) * exp(-x^2 / (2*sigma^2)))
+}
+
+rrayleigh.mh <- function(sigma, m=10000){
+  x <- numeric(m)
+  x[1] <- rchisq(1, df=1)
+  k <- 0
+  u <- runif(m)
+  for (i in 2:m){
+    xt <- x[i-1]
+    y <- rchisq(1, df = xt)
+    num <- drayleigh(y, sigma) * dchisq(xt, df = y)
+    den <- drayleigh(xt, sigma) * dchisq(y, df = xt)
+    if (u[i] <= num/den) x[i] <- y else{
+      x[i] <- xt
+      k <- k+1
+    }
+  }
+  return (list(x=x, k=k))
+}
+
+r1 <- rrayleigh.mh(sigma = 4)
+r2 <- rrayleigh.mh(sigma = 2)
+r1$k; r2$k
+
+index <- 5000:5500
+y1 <- r1$x[index]
+plot(index, y1, type="l", main="sigma=4", ylab="x")
+y2 <- r2$x[index]
+plot(index, y2, type="l", main="sigma=2", ylab="x")
+```
+
+For $\sigma=4$, approximately 40% of the candidaate points are rejected; fpr $\sigma=2$, more than 50% of the candidate points are rejected. The chain is not very efficient in this task. It is obvious that there are more flat lines in the plot of $\sigma=2$ than the plot of $\sigma=4$.
+
+## 1-9.3
+A Cauchy$(\theta,\eta)$ distribution has density function
+$$
+f(x) = \frac{1}{\theta\pi(1+[(x-\eta)/\theta]^2)},\quad -\infty <x< \infty,\ \theta>0
+$$
+The standard Cauchy has the Cauchy$(\theta=1,\eta=0)$ density, i.e.,
+$$
+f(x) = \frac{1}{\pi(1+x^2)},\quad -\infty <x< \infty
+$$
+We use $Normal(X_{i-1},1)$ as proposal distribution, and set $X_1=0$.
+
+```{r, fig.width = 8, fig.height = 4}
+m <- 10000
+x <- numeric(m)
+x[1] <- 0
+k <- 0
+u <- runif(m)
+for (i in 2:m){
+  xt <- x[i-1]
+  y <- rnorm(1, mean=xt, sd=1)
+  num <- dcauchy(y, location=0, scale=1) * dnorm(xt, mean=y, sd=1)
+  den <- dcauchy(xt, location=0, scale=1) * dnorm(y, mean=xt, sd=1)
+  if (u[i] <= num/den) x[i] <- y else{
+    x[i] <- xt
+    k <- k+1
+  }
+}
+index <- 1001:m
+x1 <- x[index]
+plot(index, x1, type='l')
+k
+quantile(x1, probs=seq(0, 1, 0.1))
+qcauchy(seq(0, 1, 0.1), location=0, scale=1)
+```
+
+The deciles are close in the center. Approximately 20% of the candidate points are rejected.
+
+## 1-9.4
+The standard Laplace distribution has density
+$$
+f(x) = \frac{1}{2}e^{-|x|},\quad x\in\mathbb{R}a
+$$
+```{r}
+dLaplace <- function(x){
+  return (0.5 * exp(-abs(x)))
+}
+rw.Metropolis <- function(sigma, x0, N){
+  x <- numeric(N)
+  x[1] <- x0
+  u <- runif(N)
+  k <- 0
+  for (i in 2:N) {
+    y <- rnorm(1, x[i-1], sigma)
+    if (u[i] <= (dLaplace(y) / dLaplace(x[i-1])))
+      x[i] <- y else {
+        x[i] <- x[i-1]
+        k <- k + 1
+      }
+  }
+  return(list(x=x, k=k))
+}
+
+N <- 2000
+sigma <- c(.05, .5, 2, 16)
+
+x0 <- 25
+rw1 <- rw.Metropolis(sigma[1], x0, N)
+rw2 <- rw.Metropolis(sigma[2], x0, N)
+rw3 <- rw.Metropolis(sigma[3], x0, N)
+rw4 <- rw.Metropolis(sigma[4], x0, N)
+#number of candidate points rejected
+print(c(rw1$k, rw2$k, rw3$k, rw4$k))
+#acceptance rate
+r <- (N - c(rw1$k, rw2$k, rw3$k, rw4$k))/N
+print(rbind(sigma, r))
+#plot
+par(mfrow=c(2,2))
+plot(rw1$x, type='l', main="sigma=0.05", ylab="x")
+plot(rw2$x, type='l', main="sigma=0.5", ylab="x")
+plot(rw3$x, type='l', main="sigma=2", ylab="x")
+plot(rw4$x, type='l', main="sigma=16", ylab="x")
+dev.off()
+```
+
+In the first plot, $\sigma=0.05$, the ratios $r(X_t,Y)$ tend to be large and almost every candidate point is accepted. The increments are small and the chain is almost like a true random walk. Chain 1 has not converged to the target in 2000 iterations. 
+
+The chain in the other plots generated with $\sigma=0.5$, $2$ and $16$ all converges. Th e larger $\sigma$, the chain converges faster.
+
+The chain of $\sigma=0.5$ converges to the target distribution after a burn-in period of about 500, while that of $\sigma=2$ only need a short brun-in period of about 100. 
+
+Finally, in the fourth plot, where $\sigma=16$, the ratios $r(X_t,Y)$ are smaller and most of the candidate points are rejected. The fourth chain converges, but it is inefficient.
+
+## 1-9.7
+```{r, fig.width = 8, fig.height = 4}
+N <- 5000 #length of chain
+burn<- 1000 #burn-in length
+X <- matrix(0, N, 2) #the chain, a bivariate sample
+rho <- 0.9 #correlation
+mu1 <- mu2 <- 0
+sigma1 <- sigma2 <- 1
+s1 <- sqrt(1-rho^2)*sigma1
+s2 <- sqrt(1-rho^2)*sigma2
+
+# generate the chain
+X[1, ] <- c(mu1, mu2) #initialize
+
+for (i in 2:N) {
+  x2 <- X[i-1, 2]
+  m1 <- mu1 + rho * (x2 - mu2) * sigma1/sigma2
+  X[i, 1] <- rnorm(1, m1, s1)
+  x1 <- X[i, 1]
+  m2 <- mu2 + rho * (x1 - mu1) * sigma2/sigma1
+  X[i, 2] <- rnorm(1, m2, s2)
+}
+
+b <- burn + 1
+x <- X[b:N, ]
+
+# compare sample statistics to parameters and plot
+colMeans(x); cov(x); cor(x)
+par(mfrow=c(1,2))
+plot(x, main="generated data", cex=.5, xlab=bquote(X[1]),
+     ylab=bquote(X[2]), ylim=range(x[,2]))
+
+# linear regression
+yy <- x[,2]
+xx <- x[,1]
+lm1 <- lm(yy ~ xx)
+summary(lm1)
+res <- lm1$residuals
+hist(res, main = "residuals of linear model")
+dev.off()
+```
+
+## 2
+Consider a $p$-dimensional normal distribution $X=(Y,Z)^T$ with two partitions $Y\in \mathbb{R}^q,Z\in \mathbb{R}^{p-q},0<q<p$. Correspondingly, the mean of $X$ is $\mu=(\mu_Y,\mu_Z)^T$ and the covariance of $X$ is
+$$
+\Sigma = \Bigg(
+\begin{matrix}
+\Sigma_{YY} & \Sigma_{YZ} \\
+\Sigma_{ZY} & \Sigma_{ZZ}
+\end{matrix}
+\Bigg).
+$$
+Derive the conditional distribution of $Z$ given $Y$.
+
+__Answer:__
+
+We have the following three lemmas:
+
+__Lemma 1:__
+
+$A,B,C,D$ are four matrices, then
+$$
+(A+CBD)^{-1} = A^{-1}-A^{-1}C(B^{-1}+DA^{-1}C)^{-1}DA^{-1}
+$$
+(Suppose the matrices in the equaiton above are inversible.)
+The lemma is proved by simply multiplying the left side with the right side, which will have a result of $I$.
+
+__Lemma 2:__
+
+Devide an $n\times n$ symmetric matrix $A$ into four blocks
+$$
+A=
+\Bigg(
+\begin{matrix}
+A_{11} & A_{12} \\
+A_{21} & A_{22}
+\end{matrix}
+\Bigg) = 
+\Bigg(
+\begin{matrix}
+A_{11} & A_{12} \\
+A_{12}^T & A_{22}
+\end{matrix}
+\Bigg)
+$$
+Its inverse matrix $B=A^{-1}$ can also be divided into four blocks
+$$
+B=A^{-1}=
+\Bigg(
+\begin{matrix}
+B_{11} & B_{12} \\
+B_{21} & B_{22}
+\end{matrix}
+\Bigg) = 
+\Bigg(
+\begin{matrix}
+B_{11} & B_{12} \\
+B_{12}^T & B_{22}
+\end{matrix}
+\Bigg)
+$$
+Here we assume $A,B\in\mathbb{R}^{n\times n}$, $A_{11},B_{11}\in\mathbb{R}^{p\times p}$ and $A_{22},B_{22}\in\mathbb{R}^{q\times q}$ with $p+q=n$. Then we have
+$$
+\begin{aligned}
+B_{11}&= (A_{11}-A_{12}A_{22}^{-1}A_{12}^T)^{-1}
+=A_{11}^{-1}+A_{11}^{-1}A_{12}(A_{22}-A_{12}^TA_{11}^{-1}A_{12})^{-1}A_{12}^TA_{11}^{-1}\\
+B_{22}&=(A_{22}-A_{12}^TA_{11}^{-1}A_{12})^{-1}
+=A_{22}^{-1}+A_{22}^{-1}A_{12}^T(A_{11}-A_{12}A_{22}^{-1}A_{12}^T)^{-1}A_{12}A_{22}^{-1}\\
+B_{12}^T&=-A_{22}^{-1}A_{12}^T(A_{11}-A_{12}A_{22}^{-1}A_{12}^T)^{-1}=B_{21}\\
+B_{12}&=-A_{11}^{-1}A_{12}(A_{22}-A_{12}^TA_{11}^{-1}A_{12})^{-1}=B_{21}^T
+\end{aligned}
+$$
+which can be proved by using lemma 1 and the fact that $AB=I$.
+
+__Lemma 3:__
+
+Devide an $n\times n$ symmetric matrix $A$ into four blocks
+$$
+A=
+\Bigg(
+\begin{matrix}
+A_{11} & A_{12} \\
+A_{21} & A_{22}
+\end{matrix}
+\Bigg) = 
+\Bigg(
+\begin{matrix}
+A_{11} & A_{12} \\
+A_{12}^T & A_{22}
+\end{matrix}
+\Bigg)
+$$
+then its determinant is
+$$
+|A|=
+\Bigg|
+\begin{matrix}
+A_{11} & A_{12} \\
+A_{21} & A_{22}
+\end{matrix}
+\Bigg| =
+|A_{22}||A_{11}-A_{12}A_{22}^{-1}A_{12}^T| =
+|A_{11}||A_{22}-A_{12}^TA_{11}^{-1}A_{12}|
+$$
+
+Note that $\Sigma=\Sigma^T$, and $\Sigma_{ZY}=\Sigma_{YZ}^T$. 
+The joint density of $X$ is
+$$
+\begin{aligned}
+f(X)=f(Y,Z)
+&=\frac{1}{(2\pi)^{p/2}|\Sigma|^{1/2}}\exp
+\Big(-\frac{1}{2}(X-\mu)^T\Sigma^{-1}(X-\mu)\Big)\\
+&=\frac{1}{(2\pi)^{p/2}|\Sigma|^{1/2}}\exp
+\Big(-\frac{1}{2}Q(Y,Z)\Big)\\
+\end{aligned}
+$$
+where
+$$
+\begin{aligned}
+Q(Y,Z) &= (X-\mu)^T\Sigma^{-1}(X-\mu)\\
+&= (Y-\mu_Y,Z-\mu_Z)^T
+\Bigg(
+\begin{matrix}
+\Sigma^{YY} & \Sigma^{YZ} \\
+\Sigma^{ZY} & \Sigma^{ZZ}
+\end{matrix}
+\Bigg)
+\Bigg(
+\begin{matrix}
+Y-\mu_Y\\
+Z-\mu_Z
+\end{matrix}
+\Bigg)\\
+&= (Y-\mu_Y)^T\Sigma^{YY}(Y-\mu_Y) +
+2(Y-\mu_Y)^T\Sigma^{YZ}(Z-\mu_Z) +
+(Z-\mu_Z)^T\Sigma^{ZZ}(Z-\mu_Z)
+\end{aligned}
+$$
+Here we have assumed that
+$$
+\Sigma^{-1}=
+\Bigg(
+\begin{matrix}
+\Sigma_{YY} & \Sigma_{YZ} \\
+\Sigma_{ZY} & \Sigma_{ZZ}
+\end{matrix}
+\Bigg)^{-1}
+=\Bigg(
+\begin{matrix}
+\Sigma^{YY} & \Sigma^{YZ} \\
+\Sigma^{ZY} & \Sigma^{ZZ}
+\end{matrix}
+\Bigg)
+$$
+According to lemma 2, we have
+$$
+\begin{aligned}
+\Sigma^{YY}&= (\Sigma_{YY}-\Sigma_{YZ}\Sigma_{ZZ}^{-1}\Sigma_{YZ}^T)^{-1}
+=\Sigma_{YY}^{-1}+\Sigma_{YY}^{-1}\Sigma_{YZ}(\Sigma_{ZZ}-\Sigma_{YZ}^T\Sigma_{YY}^{-1}\Sigma_{YZ})^{-1}\Sigma_{YZ}^T\Sigma_{YY}^{-1}\\
+\Sigma^{ZZ}&=(\Sigma_{ZZ}-\Sigma_{YZ}^T\Sigma_{YY}^{-1}\Sigma_{YZ})^{-1}
+=\Sigma_{ZZ}^{-1}+\Sigma_{ZZ}^{-1}\Sigma_{YZ}^T(\Sigma_{YY}-\Sigma_{YZ}\Sigma_{ZZ}^{-1}\Sigma_{YZ}^T)^{-1}\Sigma_{YZ}\Sigma_{ZZ}^{-1}\\
+\Sigma^{YZ}&=-\Sigma_{YY}^{-1}\Sigma_{YZ}(\Sigma_{ZZ}-\Sigma_{YZ}^T\Sigma_{YY}^{-1}\Sigma_{YZ})^{-1} = (\Sigma^{ZY})^T
+\end{aligned}
+$$
+Subsitiuting the expressions into $Q(Y,Z)$ and we obtain
+$$
+\begin{aligned}
+Q(Y,Z)
+&=(Y-\mu_Y)^T\Sigma^{YY}(Y-\mu_Y) +
+2(Y-\mu_Y)^T\Sigma^{YZ}(Z-\mu_Z) +
+(Z-\mu_Z)^T\Sigma^{ZZ}(Z-\mu_Z)\\
+&=(Y-\mu_Y)^T[\Sigma_{YY}^{-1}+\Sigma_{YY}^{-1}\Sigma_{YZ}(\Sigma_{ZZ}-\Sigma_{YZ}^T\Sigma_{YY}^{-1}\Sigma_{YZ})^{-1}\Sigma_{YZ}^T\Sigma_{YY}^{-1}](Y-\mu_Y)\\
+&\quad -2(Y-\mu_Y)^T\Sigma_{YY}^{-1}\Sigma_{YZ}(\Sigma_{ZZ}-\Sigma_{YZ}^T\Sigma_{YY}^{-1}\Sigma_{YZ})^{-1}(Z-\mu_Z)\\
+&\quad +(Z-\mu_Z)^T(\Sigma_{ZZ}-\Sigma_{YZ}^T\Sigma_{YY}^{-1}\Sigma_{YZ})^{-1}(Z-\mu_Z)\\
+&=(Y-\mu_Y)^T\Sigma_{YY}^{-1}(Y-\mu_Y)\\
+&\quad +(Y-\mu_Y)^T\Sigma_{YY}^{-1}\Sigma_{YZ}(\Sigma_{ZZ}-\Sigma_{YZ}^T\Sigma_{YY}^{-1}\Sigma_{YZ})^{-1}\Sigma_{YZ}^T\Sigma_{YY}^{-1}(Y-\mu_Y)\\
+&\quad -2(Y-\mu_Y)^T\Sigma_{YY}^{-1}\Sigma_{YZ}(\Sigma_{ZZ}-\Sigma_{YZ}^T\Sigma_{YY}^{-1}\Sigma_{YZ})^{-1}(Z-\mu_Z)\\
+&\quad +(Z-\mu_Z)^T(\Sigma_{ZZ}-\Sigma_{YZ}^T\Sigma_{YY}^{-1}\Sigma_{YZ})^{-1}(Z-\mu_Z)\\
+&=(Y-\mu_Y)^T\Sigma_{YY}^{-1}(Y-\mu_Y)\\
+&\quad +[(Z-\mu_Z)-\Sigma_{YZ}^T\Sigma_{YY}^{-1}(Y-\mu_Y)]^T(\Sigma_{ZZ}-\Sigma_{YZ}^T\Sigma_{YY}^{-1}\Sigma_{YZ})^{-1}[(Z-\mu_Z)-\Sigma_{YZ}^T\Sigma_{YY}^{-1}(Y-\mu_Y)]
+\end{aligned}
+$$
+The last equal sign is due to the following equations, for any vectors $u$, $v$ and a symmetric matrix $A=A^T$,
+$$
+\begin{aligned}
+u^TAu-2u^TAv+v^TAv&=u^TAu-u^TAv-u^TAv+v^TAv\\
+&= u^TA(u-v)-(u-v)^TAv\\
+&= u^TA(u-v)-v^TA^T(u-v)\\
+&= (u-v)^TA(u-v)\\
+&= (v-u)^TA(v-u)
+\end{aligned}
+$$
+Define
+$$
+\begin{aligned}
+b\overset{def}{=}&\mu_Z+\Sigma_{YZ}^T\Sigma_{YY}^{-1}(Y-\mu_Y)\\
+A\overset{def}{=}&\Sigma_{ZZ}-\Sigma_{YZ}^T\Sigma_{YY}^{-1}\Sigma_{YZ}
+\end{aligned}
+$$
+and
+$$
+\left\{
+\begin{aligned}
+&Q_1(Y) &\overset{def}{=}&(Y-\mu_Y)^T\Sigma_{YY}^{-1}(Y-\mu_Y)\\
+&Q_2(Y,Z) &\overset{def}{=}&[(Z-\mu_Z)-\Sigma_{YZ}^T\Sigma_{YY}^{-1}(Y-\mu_Y)]^T(\Sigma_{ZZ}-\Sigma_{YZ}^T\Sigma_{YY}^{-1}\Sigma_{YZ})^{-1}[(Z-\mu_Z)-\Sigma_{YZ}^T\Sigma_{YY}^{-1}(Y-\mu_Y)]\\
+& &=&(Z-b)^TA^{-1}(Z-b)
+\end{aligned}
+\right.
+$$
+then we have
+$$
+Q(Y,Z)=Q_1(Y)+Q_2(Y,Z)
+$$
+Using lemma 3, we have
+$$
+|\Sigma|=\Bigg|
+\begin{matrix}
+\Sigma_{YY} & \Sigma_{YZ} \\
+\Sigma_{ZY} & \Sigma_{ZZ}
+\end{matrix}
+\Bigg|=
+|\Sigma_{YY}||\Sigma_{ZZ}-\Sigma_{YZ}^T\Sigma_{YY}^{-1}\Sigma_{YZ}|
+$$
+thus the joint density can be written as
+$$
+\begin{aligned}
+f(X)&=f(Y,Z)=
+\frac{1}{(2\pi)^{p/2}|\Sigma|^{1/2}}\exp
+\Big(-\frac{1}{2}Q(Y,Z)\Big)\\
+&= \frac{1}{(2\pi)^{p/2}|\Sigma_{YY}|^{1/2}|\Sigma_{ZZ}-\Sigma_{YZ}^T\Sigma_{YY}^{-1}\Sigma_{YZ}|^{1/2}}\exp\Big(-\frac{1}{2}\big(Q_1(Y)+Q_2(Y,Z)\big)\Big)\\
+&= \frac{1}{(2\pi)^{q/2}|\Sigma_{YY}|^{1/2}}\exp\Big(-\frac{1}{2}Q_1(Y)\Big)
+\frac{1}{(2\pi)^{(p-q)/2}|\Sigma_{ZZ}-\Sigma_{YZ}^T\Sigma_{YY}^{-1}\Sigma_{YZ}|^{1/2}}\exp\Big(-\frac{1}{2}Q_2(Y,Z)\Big)\\
+&= \frac{1}{(2\pi)^{q/2}|\Sigma_{YY}|^{1/2}}\exp\Big(-\frac{1}{2}(Y-\mu_Y)^T\Sigma_{YY}^{-1}(Y-\mu_Y)\Big)\frac{1}{(2\pi)^{(p-q)/2}|A|^{1/2}}\exp\Big(-\frac{1}{2}(Z-b)^TA^{-1}(Z-b)\Big)
+\end{aligned}
+$$
+Therefore, the marginal density of $Y$ is
+$$
+f_Y(Y)=\int f(Y,z)dz=\frac{1}{(2\pi)^{q/2}|\Sigma_{YY}|^{1/2}}\exp\Big(-\frac{1}{2}(Y-\mu_Y)^T\Sigma_{YY}^{-1}(Y-\mu_Y)\Big)
+$$
+and the conditional density of $Z$ given $Y$ is
+$$
+f_{Z|Y}(Z|Y)=\frac{f(Y,Z)}{f_Y(Y)}
+=\frac{1}{(2\pi)^{(p-q)/2}|A|^{1/2}}\exp\Big(-\frac{1}{2}(Z-b)^TA^{-1}(Z-b)\Big)
+$$
+with
+$$
+b=\mu_Z+\Sigma_{YZ}^T\Sigma_{YY}^{-1}(Y-\mu_Y)\\
+$$
+and
+$$
+A=\Sigma_{ZZ}-\Sigma_{YZ}^T\Sigma_{YY}^{-1}\Sigma_{YZ}
+$$
+Therefore, the conditional density of $Z$ given $Y$ is a $(p-q)$ dimentional normal distribution with mean $(\mu_Z+\Sigma_{YZ}^T\Sigma_{YY}^{-1}(Y-\mu_Y))$ and variance $(\Sigma_{ZZ}-\Sigma_{YZ}^T\Sigma_{YY}^{-1}\Sigma_{YZ})$.

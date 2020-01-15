@@ -1,0 +1,175 @@
+---
+title: "Homework 4"
+author: "Shen Jialun 16307110030"
+date: "10/28/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+cat("\014");rm(list=ls())
+```
+
+## 1-Ex5.15
+We need to estimate
+$$
+\theta = \int_0^1\frac{e^{-x}}{1+x^2}dx
+$$
+Let
+$$
+g(x) = \frac{e^{-x}}{1+x^2}, \quad 0<x<1
+$$
+The importance funciton is
+$$
+f(x)  = \frac{e^{-x}}{1-e^{-1}},\quad 0<x<1
+$$
+the corresponding cdf is
+$$
+F(x) = \int_0^xf(x)dx = \frac{1-e^{-x}}{1-e^{-1}}
+$$
+the corresponding quantile function is
+$$
+F^{-1}(u) = -{\rm log}(1-u(1-e^{-1})),\quad 0\leq u\leq 1
+$$
+
+### (a)
+If the integral range $(0,1)$ is divided into five equal-length subintervals,$I^{(a)}_j=((j-1)/5,j/5),j=1,2,...,5$, then on the $j^{th}$ subinterval, the density is
+$$
+f^{(a)}_j(x) = \frac{f(x)}{{\rm P}\Big(x\in I^{(a)}_j\Big)} = \frac{f(x)}{F(j/5)-F((j-1)/5)},\quad x\in I^{(a)}_j
+$$
+
+### (b)
+If the integral range is divided into five pieces with quantiles of the importance function, i.e., the subintervals being
+$$
+I^{(b)}_j = \{x:a_{j-1}\leq x\leq a_j\},\quad j=1,2...,5
+$$
+where $a_j=F^{-1}(j/5), j=0,1,...,5$.
+
+Then on the $j^{th}$ subinterval, variables are generated from the density
+$$
+f^{(b)}_j(x) = \frac{f(x)}{{\rm P}\Big(x\in I^{(b)}_j\Big)} = \frac{5e^{-x}}{1-e^{-1}},\quad x\in I^{(b)}_j
+$$
+
+```{r}
+M <- 10000
+theta.hat <- se <- numeric(3)
+g <- function(x){
+  exp(-x - log(1+x^2)) * (x>0) * (x<1)
+}
+f <- function(x){
+  exp(-x) / (1 - exp(-1))
+}
+F.cdf <- function(x){
+  (1 - exp(-x)) / (1 - exp(-1))
+}
+F.quantile <- function(u){
+  - log(1- u * (1 - exp(-1)))
+}
+#using importance sampling
+u <- runif(M)
+x <- F.quantile(u) #inverse transform method
+fg <- g(x) / f(x)
+theta.hat[1] <- mean(fg)
+se[1] <- sd(fg)
+#using stratified importance sampling with subinterval Ia
+k <- 5
+m <- M/k
+T1 <- var1 <- numeric(5)
+a <- seq(0, 1, length.out = 6)
+for (j in 1:5){
+  ai <- a[j] #a_{i-1}
+  aii <- a[j+1] #a_i
+  fj <- function(x){f(x) / (F.cdf(j/5) - F.cdf((j-1)/5))}
+  cnt <- 0
+  fg <- numeric(m)
+  while (cnt < m){
+    u <- runif(1)
+    x <- F.quantile(u)
+    if ((ai < x) & (x < aii)){
+      cnt <- cnt+1
+      fg[cnt] <- g(x)/fj(x)
+    }
+  }
+  T1[j] <- mean(fg)
+  var1[j] <- var(fg)
+}
+theta.hat[2] <- sum(T1)
+se[2] <- sqrt(1/m * sum(var1))
+#using stratified importance sampling with subinterval Ib
+T2 <- var2 <- numeric(5)
+dim(a) <- length(a)
+b <- apply(a, 1, F.quantile)
+fj <- function(x){5 * f(x)}
+for (j in 1:5){
+  ai <- b[j] #a_{i-1}
+  aii <- b[j+1] #a_i
+  cnt <- 0
+  fg <- numeric(m)
+  while (cnt < m){
+    u <- runif(1)
+    x <- F.quantile(u)
+    if ((ai < x) & (x < aii)){
+      cnt <- cnt+1
+      fg[cnt] <- g(x)/fj(x)
+    }
+  }
+  T2[j] <- mean(fg)
+  var2[j] <- var(fg)
+}
+theta.hat[3] <- sum(T2)
+se[3] <- sqrt(1/m * sum(var2))
+theta.hat
+se
+```
+
+## 2-Ex6.1
+The pdf of a standard Cauchy distribution is
+$$
+f(x) = \frac{1}{\pi (1+x^2)}
+$$
+
+```{r}
+n <- 20
+K <- n/2 - 1
+m <- 1000
+mse <- matrix(0, K, 2)
+trimmed.mse <- function(n, m, k){
+  #MC est for k-level trimmed mean of standard Cauchy distribution
+  tmean <- numeric(m)
+  for (i in 1:m){
+    x <- sort(rcauchy(n))
+    tmean[i] <- sum(x[(k+1):(n-k)]) / (n-2*k)
+  }
+  #theta <- mean(tmean)#x
+  theta <- median(tmean)
+  mse.hat <- mean((tmean - theta)^2)
+  se.mse <- sqrt(mean((tmean - theta)^2))/sqrt(m)
+  return (c(mse.hat, se.mse))
+}
+for (k in 1:K){
+  mse[k, 1:2] <- trimmed.mse(n=n, m=m, k=k)
+}
+mse.table <- data.frame(seq(1,9), mse)
+names(mse.table) <- c('k', 'mse of k-level trimmed mean', 'standard error')
+mse.table
+```
+
+## 3
+__Proof:__
+
+Suppose $X_1,X_2,...,X_n$ are $n$ random samples independently generated from standard normal distribution. Sort them in increasing order, and we obtain $X_{(1)}\leq X_{(2)}\leq ...\leq X_{(n)}$. The $k$-level trimmed mean is
+$$
+\bar X_{[-k]} = \frac{1}{n-2k}\sum_{i=k+1}^{n-k}X_{(i)}
+$$
+The expectation of $\bar X_{[-k]}$ is
+$$
+\begin{aligned}
+E(\bar X_{[-k]}) &= E\bigg(\frac{1}{n-2k}\sum_{i=k+1}^{n-k}X_{(i)}\bigg)\\
+&= \frac{1}{n-2k}E\bigg(\sum_{i=k+1}^{n-k}X_{(i)}\bigg)\\
+&= \frac{1}{n-2k}(n-2k)E(X)\\
+&= \mu \\
+&= 0
+\end{aligned}
+$$
+
+$\Box$

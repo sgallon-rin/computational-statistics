@@ -1,0 +1,232 @@
+---
+title: "Homework 3"
+author: "Shen Jialun 16307110030"
+date: "10/21/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+cat("\014");rm(list=ls())
+```
+
+## 1-5.12
+__Proof:__
+
+$\hat{\theta}^{IS}_f$ is an importance sampling estimator of 
+$\theta = \int g(x)dx$, let $Y=g(X)/f(X)$. Then
+
+$$
+{\rm Var}(\hat{\theta}^{IS}_f)= \frac{1}{m}{\rm Var}(Y)
+$$
+
+$g(x)/f(x)$ is bounded, so
+$$
+\bigg|\frac{g(x)}{f(x)}\bigg| \leq c
+$$
+for all $x$, where $c\geq 0$. Note that $f$ is a density, thus $f(x)> 0$, so
+$$
+\begin{aligned}
+|&g(x)| \leq cf(x)\\
+-cf(x)\leq &g(x) \leq cf(x)\\
+-(c+\theta)f(x)\leq g(x)&-\theta f(x) \leq (c-\theta)f(x)\\
+(g(x)&-\theta f(x))^2 \leq {\rm max}\{(c+\theta)^2, (c-\theta)^2\}
+\end{aligned}
+$$
+
+By using the fact that $\int f(x)dx=1$, the variance of $Y$ is
+$$
+\begin{aligned}
+{\rm Var}(Y) &= \int\frac{g^2(x)}{f(x)}dx 
+- \bigg(\int g(x)dx \bigg)^2\\
+&= \int \frac{g^2(x)}{f(x)}dx - \theta^2\\
+&= \int \frac{g^2(x)}{f(x)}dx
+- 2 \theta^2 + \theta^2\\
+&= \int \frac{g^2(x)}{f(x)}dx
+-2\theta \int g(x)dx + \theta^2\int f(x)dx\\
+&= \int \bigg(\frac{g^2(x)}{f(x)} 
+-2 \theta g(x) +\theta^2 f(x)\bigg) dx\\
+&= \int \frac{g^2(x)-2\theta g(x)f(x)+\theta^2 f^2(x)}{f(x)}dx\\
+&= \int \frac{(g(x)-\theta f(x))^2}{f(x)}dx\\
+&\leq {\rm max}\Bigg \{\int\frac{(c-\theta)^2}{f(x)}dx,
+\int\frac{(c+\theta)^2}{f(x)}dx
+\Bigg \}
+\end{aligned}
+$$
+is finite. Therefore, the variance of the importance sampling estimator $\hat{\theta}^{IS}_f$ is finite. $\Box$
+
+## 1-5.14
+We need to estimate
+$$\theta = \int_1^\infty \frac{x^2}{\sqrt{2\pi}}e^{-x^2/2}dx$$
+by imoprtance sampling. Let
+$$
+g(x) = \frac{x^2}{\sqrt{2\pi}}e^{-x^2/2}, \quad x\geq 1
+$$
+First, we can have a look at $g(x)$
+```{r}
+g <- function(x){x ^ 2 / sqrt(2*pi) * exp(-x^2/2)}
+x <- seq(0, 10, length.out = 1000)
+plot(x, g(x), type = 'l')
+```
+
+The shape of $g(x)$ is close to a normal distribution with mean 1.5, so we can choose $f(x)$ as a N(1.5,1) density.
+
+N(1.5,1) density is
+$$
+f(x) = \frac{1}{\sqrt{2\pi}}e^{-(x-1.5)^2/2}, 
+\quad -\infty < x < \infty
+$$
+
+```{r}
+m <- 1.5 #mean of normal
+n <- 10000
+g0 <- function(x){x^2 / sqrt(2*pi) * exp(-x^2/2)}
+#comparison of shape
+plot(x, dnorm(x, mean = m), type = 'l', col = 'blue')
+lines(x, g0(x), col = 'red')
+#calculate by importance sampling
+g <- function(x){x^2 / sqrt(2*pi) * exp(-x^2/2) * (x>1)}
+x <- rnorm(n, mean = m)
+fg <- g(x)/dnorm(x, mean = m)
+theta.hat <- mean(fg)
+theta.hat
+sd(fg)
+```
+
+## 2
+__Proof:__
+
+For a random variable $Y$,
+$$
+{\rm Var}(Y) = {\rm E}[Y^2] - ({\rm E}[Y])^2
+$$
+Conditioning on $X$ on both sides, we obtain
+$$
+{\rm Var}(Y|X) = {\rm E}[Y^2|X] - ({\rm E}[Y|X])^2
+$$
+so
+$$
+\begin{aligned}
+{\rm E[Var}(Y|X)] &= {\rm E[E}[Y^2|X]] - {\rm E[(E}[Y|X])^2]\\
+&= {\rm E}[Y^2] - {\rm E[(E}[Y|X])^2]
+\end{aligned}
+$$
+Also, since ${\rm E[E}[Y|X]] = E[Y]$, we have
+$$
+\begin{aligned}
+{\rm Var(E}[Y|X]) &= {\rm E[(E}[Y|X])^2] - {\rm (E[E}[Y|X]])^2\\
+&= {\rm E[(E}[Y|X])^2] - ({\rm E}[Y])^2
+\end{aligned}
+$$
+Hence, by addign the two equations, we obtain
+$$
+{\rm E[Var}(Y|X)] + {\rm Var(E}[Y|X]) 
+= {\rm E}[Y^2] - ({\rm E}[Y])^2
+= {\rm Var}(Y)
+$$
+which is the desired equation. $\Box$
+
+## 3(a)
+Define $\theta=\int_Ag(x)dx$, where $A$ is a bounded set and $g\in \mathcal L_2(A)$. Let $f$ be an importance function which is a density function supported on the set $A$.
+
+The steps to obtain the importance sampling estimator $\hat{\theta}_n$, where $n$ is the number of random samples generated during the process is
+
+1. Generate $X_1,X_2,...,X_n$ from $f$
+2. Calculate $Y_i=\frac{g(X_i)}{f(X_i)},i=1,2,...,n$
+3. Calculate $\hat{\theta}_n=\frac{1}{n}\sum_{i=1}^nY_i$
+
+## 3(b)
+__Proof:__
+
+The Monte Carlo variance of $\hat{\theta}_n$ is
+$$
+{\rm Var}(\hat{\theta}_n) 
+= {\rm Var}\bigg(\sum_{i=1}^nY_i\bigg)
+= \frac{1}{n^2}\sum_{i=1}^n{\rm Var}(Y_i)
+= \frac{1}{n}{\rm Var}(Y)
+$$
+where $Y=\frac{g(X)}{f(X)}$.
+
+$$
+\begin{aligned}
+{\rm Var}(Y) &= {\rm Var}\bigg(\frac{g(X)}{f(X)}\bigg) \\
+&= {\rm E}\bigg[\bigg(\frac{g(X)}{f(X)}\bigg)^2\bigg]
+- \bigg({\rm E}\bigg[\frac{g(X)}{f(X)}\bigg]\bigg)^2\\
+&= \int_A\frac{g^2(x)}{f^2(x)}f(x)dx
+- \bigg(\int_A\frac{g(x)}{f(x)}f(x)dx\bigg)^2\\
+&= \int_A\frac{g^2(x)}{f(x)}dx - \bigg(\int_A g(x)dx \bigg)^2\\
+&= \int_A \frac{g^2(x)}{f(x)}dx - \theta^2
+\end{aligned}
+$$
+Hence,
+$$
+{\rm Var}(\hat{\theta}_n) 
+= \frac{1}{n}\bigg\{
+\int_A \frac{g^2(x)}{f(x)}dx - \theta^2
+\bigg\}
+$$
+which is the desired equation.$\Box$
+
+## 3(c)
+__Proof:__
+
+To minimize ${\rm Var}(\hat{\theta}_n)$, is to minimize $\int_A \frac{g^2(x)}{f(x)}dx$.
+
+The Cauchy-Schwarz inequality is
+$$
+\bigg(\int f(x)g(x)dx\bigg)^2\leq
+\int f^2(x)dx\int g^2(x)dx
+$$
+"=" holds iff $f(x)$ and $g(x)$ are linearly dependent.
+
+Notice that $f$ is an importance function which is a density function supported on the set $A$, we have $f(x)>0$ and $\int_Af(x)dx=1$. Therefore,
+$$
+\begin{aligned}
+& \int_A \frac{g^2(x)}{f(x)}dx\\
+= & \int_A \frac{g^2(x)}{f(x)}dx \int_Af(x)dx\\
+\geq & \Big(\int_A \frac{|g(x)|}{\sqrt{f(x)}}\sqrt{f(x)}dx\Big)^2\\
+= & \Big(\int_A|g(x)|dx\Big)^2
+\end{aligned}
+$$
+"=" holds iff 
+$$
+\sqrt{f(x)}=t\frac{|g(x)|}{\sqrt{f(x)}}
+$$
+i.e.
+$$
+f(x) = t|g(x)|
+$$
+where $t$ is a constant.
+
+Then
+$$
+\begin{aligned}
+{\rm Var}(\hat{\theta}_n) 
+&= \frac{1}{n}\bigg\{
+\int_A \frac{g^2(x)}{f(x)}dx - \theta^2
+\bigg\}\\
+&= \frac{1}{n}\bigg\{
+\int_A \frac{|g(x)|^2}{t|g(x)|}dx - \theta^2
+\bigg\}\\
+&= \frac{1}{n}\bigg\{\frac{1}{t}
+\int_A |g(x)|dx - \theta^2
+\bigg\}\\
+&= \frac{1}{n}\bigg\{\frac{1}{t}
+\int_A |g(x)|dx - 
+\bigg(\int_Ag(x)dx\bigg)^2
+\bigg\}
+\end{aligned}
+$$
+Choose $1/t=\int_A|g(x)|dx$, then the minimizer of ${\rm Var}(\hat{\theta}_n)$, i.e., the $optimal$ importance function $f^*$ is
+$$
+f^*(x) = \frac{|g(x)|}{\int_A|g(x)|dx}
+$$
+the theoretical lower bound of ${\rm Var}(\hat{\theta}_n)$ is
+$$
+\frac{1}{n}\bigg\{\bigg(
+\int_A |g(x)|dx \bigg)^2 - 
+\bigg(\int_Ag(x)dx\bigg)^2
+\bigg\}
+$$
+
+$\Box$
