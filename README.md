@@ -3,3 +3,4 @@
 
 Data science wiki is [数据科学网](http://shjkx.wang/index.php/数据科学网)
 and wiki page for this course is [here](http://shjkx.wang/index.php/统计计算_张楠_2019秋)
+(you may need an account to visit the wiki)
