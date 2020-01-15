@@ -1,0 +1,318 @@
+---
+title: "Homework 2"
+author: "Shen Jialun 16307110030"
+date: "10/14/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+cat("\014");rm(list=ls())
+```
+
+## 1-5.3
+
+```{r}
+m <- 10000
+# Monte Carlo approach
+x <- runif(m, min = 0, max = 0.5)
+g <- exp(-x)
+theta.hat <- mean(g) * 0.5
+print(theta.hat)
+print(1 - exp(-0.5)) #theoretical value
+v.hat <- var(g) / m
+print(v.hat)
+# "hit-or-miss" apporach
+z <- rexp(m, rate = 1) #sampling from exponential dist
+g <- (z<=0.5) #the indicator function
+theta.star <- mean(g)
+print(theta.star)
+v.star <- var(g) / m
+print(v.star)
+```
+
+$\hat{\theta}$ is smaller, i.e., more efficient. 
+
+The first estimator $\hat{\theta}$ is obtained by summing over values ranging from $0.5*e^{-0.5}=0.303$ to $0.5*e^0=0.5$, while the second estimator $\theta^*$ is obtained by summing over 0's and 1's. This is the reason why the variance of $\hat{\theta}$ is smaller.
+
+## 1-5.4
+
+```{r}
+m <- 10000
+x <- seq(0.1, 0.9, 0.1)
+mc.beta.cdf <- function(x, a, b, m=10000){
+  z <- rbeta(m, 3, 3)
+  dim(x) <- length(x)
+  p <- apply(x, MARGIN = 1, FUN = function(x, z){mean(z <= x)}, z = z)
+  return(p)
+}
+p <- mc.beta.cdf(x, 3, 3, m)
+cdf <- pbeta(x, 3, 3) #theoretical cdf of Beta(3,3)
+print(round(rbind(p, cdf), 3))
+```
+
+## 1-5.5
+
+The definite integral is 
+$$
+\theta = \int_0^x e^{-\frac{t^2}{2}}dx = \int_0^x xe^{-\frac{(xy)^2}{2}}dy
+$$
+
+Using the same sample interval as in Example 5.3 and 5.4, we can compare the efficiency of the two methods at different x's.
+
+```{r}
+x <- seq(.1, 2.5, length = 10)
+m <- 10000
+# sample mean Monte Carlo method
+u <- runif(m)
+cdf1 <- numeric(length(x))
+var1 <- numeric(length(x))
+for (i in 1:length(x)) {
+  g <- x[i] * exp(-(u * x[i])^2 / 2)
+  cdf1[i] <- mean(g) / sqrt(2 * pi) + 0.5
+  var1[i] <- var(g) / m
+}
+# "hit-or-miss" method
+z <- rnorm(m)
+cdf2 <- numeric(length(x))
+var2 <- numeric(length(x))
+for (i in 1:length(x)) {
+  g <- (z <= x[i])
+  cdf2[i] <- mean(g)
+  var2[i] <- var(g) / m
+}
+# efficiency comparison
+effi <- character(length(x))
+improve <- numeric(length(x))
+for (i in 1:length(x)){
+  if (var1[i] >= var2[i]){
+    effi[i] <- "theta2"
+    improve[i] <- (var1[i] - var2[i]) / var1[i]
+  }else{
+    effi[i] <- "theta1"
+    improve[i] <- (var2[i] - var1[i]) / var2[i]
+  }
+}
+improve <- paste0(as.character(round(improve*100, 2)), "%")
+Phi <- pnorm(x)
+cdfs <- round(rbind(x, cdf1, cdf2, Phi), 3)
+vars <- round(rbind(var1, var2), 13)
+print(rbind(cdfs, vars, effi, improve))
+```
+
+We can see that sample mean Monte Carlo method is better near the center, while "hit-or-miss" method is better in the upper tail, which agrees with the conclusion on textbook.
+
+## 1-5.9
+
+The pdf of Rayleigh($\sigma$) distribution is
+$$
+f(x) = \frac{x}{\sigma^2}e^{-\frac{x^2}{2\sigma^2}}, \quad x\geq 0, \sigma >0
+$$
+
+Denote the cdf of Rayleigh($\sigma$) distribution as $F(x)$, making the substitution $y=t/x$, we have $dy = xdt$, then Y follows Uniform(0,1) distribution and
+$$
+\begin{aligned}
+F(x) &= \int_o^xf(t)dt\\
+&= \frac{1}{\sigma^2} \int_o^x te^{-\frac{t^2}{2\sigma^2}} dt\\
+&= \frac{1}{\sigma^2} \int_o^x x^2ye^{-\frac{(xy)^2}{2\sigma^2}} dy
+\end{aligned}
+$$
+
+```{r}
+MC.Rayleigh <- function(x, sigma, R = 10000, antithetic = TRUE) {
+  u <- runif(R/2)
+  if (!antithetic) v <- runif(R/2) else
+    v <- 1 - u
+  u <- c(u, v)
+  cdf <- numeric(length(x))
+  for (i in 1:length(x)) {
+    g <- x[i]^2 * u * exp(-(u * x[i])^2 / (2 * sigma^2))
+    cdf[i] <- mean(g) / (sigma^2)
+  }
+  cdf
+}
+#generation by antithetic variables
+x <- seq(0.1, 4, length = 10)
+sigma <- 1
+MC <- MC.Rayleigh(x, sigma)
+print(round(rbind(x, MC), 5))
+#draw a graph of Rayleigh(1) cdf
+x <- seq(0, 5, length = 500)
+sigma <- 1
+MC <- MC.Rayleigh(x, sigma)
+plot(x, MC, type = "l")
+#comparison
+m <- 1000
+MC1 <- MC2 <- numeric(m)
+x <- 0.5
+for (i in 1:m) {
+  MC1[i] <- MC.Rayleigh(x, sigma, R = m, antithetic = FALSE)
+  MC2[i] <- MC.Rayleigh(x, sigma, R = m)
+}
+print(sd(MC1))
+print(sd(MC2))
+improve = (var(MC1) - var(MC2))/var(MC1)
+str <- paste0(as.character(round(improve*100, 2)), "%")
+print(paste0("The percentage reduction in variance of antithetic variables is ", str))
+```
+
+
+## 1-5.10
+
+We need to calculate
+$$
+\theta  = \int_0^1 \frac{e^{-x}}{1+x^2}dx
+$$
+Let
+$$
+h(x) = \frac{e^{-x}}{1+x^2}
+$$
+
+
+```{r}
+h <- function(x){
+  return(exp(-x) / (1+x^2))
+}
+func <- function(R = 10000, antithetic = TRUE){
+  u <- runif(R/2)
+  if (!antithetic) v <- runif(R/2) else
+    v <- 1 - u
+  u <- c(u, v)
+  g <- h(u)
+  return(mean(g))
+}
+#calculate with antithetic method
+set.seed(123)
+theta.hat <- func()
+theo <- integrate(h,0,1)
+print(c(theta.hat, theo$value))
+#comparison of variance
+m <- 1000
+MC1 <- MC2 <- numeric(m)
+for (i in 1:m) {
+  MC1[i] <- func(R = m, antithetic = FALSE)
+  MC2[i] <- func(R = m)
+}
+print(sd(MC1))
+print(sd(MC2))
+improve = (var(MC1) - var(MC2))/var(MC1)
+str <- paste0(as.character(round(improve*100, 2)), "%")
+print(paste0("The the approximate reduction in varianceis ", str))
+```
+
+
+## 2-1
+
+A point X in $d$-dimention hyperspace has coordinate
+$$
+(x_1,x_2,...,x_d)
+$$
+
+Without loss of generality, we consider the fraction of a $d$-dimensional hypersphere has radius $r=1$, which lies in the inscribed $d$-dimensional hypercube. Additionally, without loss of generality, we consider the part in the first quadrant, i.e., $x_i >= 0, i=1,2,...d$.
+
+The volume of a $d$-dimensional hypersphere with radius $r$ is
+$$
+V_d(r) = \frac{\pi^{\frac{d}{2}}}{\Gamma(\frac{d}{2}+1)}r^d
+$$
+In this case, $r=1$, thus the volume of a unit hypersphere is
+$$
+V_d(1) = \frac{\pi^{\frac{d}{2}}}{\Gamma(\frac{d}{2}+1)}
+$$
+
+Let $X_1,X_2,...,X_d$ be $d$ i.i.d. Uniform(0,1) r.v.'s. Then the probability of a random point in the hypercube to be in the hypersphere is
+$$
+\begin{aligned}
+P\bigg(\sum_{i=1}^d X_i^2 \leq 1\bigg) &= \frac{1}{2^d}V_d/1\\
+&= \frac{1}{2^d} \cdot \frac{\pi^{\frac{d}{2}}}{\Gamma(\frac{d}{2}+1)}
+\end{aligned}
+$$
+
+Note that the portion of a $d$-dimensional hypersphere which lies in the inscribed $d$-dimensional hypercube in the first quadrant is $1/2^d$.
+
+By simple arithmatic, we have
+$$
+\begin{aligned}
+\pi &= \Bigg(
+P\bigg(\sum_{i=1}^d X_i^2 \leq 1\bigg) \cdot
+2^d \cdot \Gamma\bigg(\frac{d}{2}+1\bigg)
+\Bigg)^{\frac{2}{d}}\\
+&= \Bigg(
+\theta(d) \cdot
+2^d \cdot \Gamma\bigg(\frac{d}{2}+1\bigg)
+\Bigg)^{\frac{2}{d}}
+\end{aligned}
+$$
+where
+$$
+\begin{aligned}
+\theta(d) &= P\bigg(\sum_{i=1}^d X_i^2 \leq 1\bigg)\\
+&= E\{I(Z_d\leq 1)\}
+\end{aligned}
+$$
+is what we need to estimate using Monte Carlo method. $Z_d$ is the sum of suqares of $d$ i.i.d. Unif(0,1) distributions. The estimate of $\theta$ is thus
+$$
+\begin{aligned}
+\hat{\theta}(d) &= E_m\{I(Z_d\leq 1)\}\\
+&= \frac{1}{m}\sum_{i=1}^m I(Z_d\leq 1)
+\end{aligned}
+$$
+The estimate of $\pi$ is
+$$
+\hat{\pi} = \Bigg(
+\hat{\theta}(d) \cdot
+2^d \cdot \Gamma\bigg(\frac{d}{2}+1\bigg)
+\Bigg)^{\frac{2}{d}}
+$$
+
+## 2-2
+
+```{r}
+pi.hypersphere <- function(n, m=10000){
+  #calculate pi.hat from n-dimension hypersphere with snmple size m
+  x <- matrix(runif(m*n), nrow = m)
+  g <- apply(x^2, 1, sum)
+  theta.hat <- mean(g <= 1)
+  pi.hat <- (theta.hat * 2^n * gamma(n/2 + 1)) ^ (2/n)
+  return(pi.hat)
+}
+pi.digit <- function(d, m=1e7, digit=4){
+  #calculate the sample size needed to approximate pi to its digit-th digit,
+  #starting with smaple size m
+  set.seed(123)
+  pi.hat <- pi.hypersphere(d, m)
+  r <- abs(round(pi.hat-pi, digit))
+  while(r >= 0.001){
+    set.seed(123)
+    m <- m + 1e7
+    pi.hat <- pi.hypersphere(d, m)
+    r <- abs(round(pi.hat-pi, digit))
+  }
+  return(m)
+}
+#approximate pi
+dmin <- 2
+dmax <- 10
+x <- seq(dmin, dmax)
+set.seed(123)
+pi.hypersphere(2)
+set.seed(123)
+pi.hypersphere(2, 1e6)
+set.seed(123)
+pi.hypersphere(2, 1e7)
+for (d in dmin:dmax){
+  set.seed(123)
+  p <- pi.hypersphere(d, 1e7)
+  print(paste("dimension:", as.character(d)))
+  print(p)
+}
+#calculate the points needed
+for (d in dmin:dmax){
+  print(paste("dimension:", as.character(d)))
+  m <- pi.digit(d)
+  print(m)
+}
+```
+
+Generally, the number of points needed is larger when $d$ is larger. The memory of my PC even runs out at large $d$'s.
+
+
