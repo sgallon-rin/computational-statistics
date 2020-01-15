@@ -1,2 +1,2 @@
-My answers to homeworks of the course.
-(Only for reference)
+My solution to homeworks of this course.
+(for reference only)
