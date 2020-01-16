@@ -6,3 +6,7 @@ and the wiki page for this course is [here](http://shjkx.wang/index.php/统计�
 (you may need an account to visit the wiki)
 
 Please refer to the [course website](https://zhangnanfudan.github.io/teaching/DATA130004-CompStat-Fall2019.html) for more information (R codes for examples, homework, syllabus, etc.)
+
+Textbook: 
+* Maria Rizzo (2007). Statistical Computing with R, CRC
+* Maria Rizzo (2019). Statistical Computing with R, 2nd Edition, CRC
